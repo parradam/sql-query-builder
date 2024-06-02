@@ -1,39 +1,52 @@
-from main import Relationship, build_query
+from main import JoinCondition, Join, WhereCondition, QueryBuilder
 
 
 def test_join_with_two_tables() -> None:
-    relationships: list[Relationship] = [
-        Relationship("customers", "customer_id", "orders", "customer_id"),
-        Relationship("orders", "order_id", "order_items", "order_id"),
-    ]
+    where_condition_1 = WhereCondition("customers.customer_id", "1", "=")
+    new_where: list[WhereCondition] = [where_condition_1]
 
-    q: str = build_query(relationships)
+    join_condition_1 = JoinCondition("customers.customer_id", "orders.customer_id", "=")
+    join_condition_2 = JoinCondition(
+        "customers.customer_id2", "orders.customer_id2", "="
+    )
+    new_join = Join("INNER", "orders", [join_condition_1, join_condition_2])
+
+    qb = QueryBuilder()
+    qb.select("field1").from_table("customers").join(new_join).where(new_where)
+    q: str = qb.build()
 
     assert q == (
-        "SELECT\n"
-        "\t-- [fields]\n"
+        "SELECT field1\n"
         "FROM customers\n"
-        "JOIN orders ON customers.customer_id = orders.customer_id\n"
-        "JOIN order_items ON orders.order_id = order_items.order_id"
+        "INNER JOIN orders ON customers.customer_id = orders.customer_id AND customers.customer_id2 = orders.customer_id2\n"
+        "WHERE customers.customer_id = 1"
     )
 
 
 def test_join_with_four_tables() -> None:
-    relationships: list[Relationship] = [
-        Relationship("customers", "customer_id", "orders", "customer_id"),
-        Relationship("orders", "order_id", "order_items", "order_id"),
-        Relationship("order_items", "product_id", "products", "product_id"),
-        Relationship("products", "category_id", "categories", "category_id"),
-    ]
+    where_condition_1 = WhereCondition("customers.customer_id", "1", "=")
+    new_where: list[WhereCondition] = [where_condition_1]
 
-    q: str = build_query(relationships)
+    join_condition_1 = JoinCondition("customers.customer_id", "orders.customer_id", "=")
+    join_condition_2 = JoinCondition("orders.order_id", "products.order_id", "=")
+    join_condition_3 = JoinCondition(
+        "customers.customer_id", "transactions.customer_id", "="
+    )
+    new_join = Join("INNER", "orders", [join_condition_1])
+    new_join2 = Join("INNER", "products", [join_condition_2])
+    new_join3 = Join("INNER", "transactions", [join_condition_3])
+
+    qb = QueryBuilder()
+    qb.select("field1").from_table("customers").join(new_join).join(new_join2).join(
+        new_join3
+    ).where(new_where)
+    q: str = qb.build()
 
     assert q == (
-        "SELECT\n"
-        "\t-- [fields]\n"
+        "SELECT field1\n"
         "FROM customers\n"
-        "JOIN orders ON customers.customer_id = orders.customer_id\n"
-        "JOIN order_items ON orders.order_id = order_items.order_id\n"
-        "JOIN products ON order_items.product_id = products.product_id\n"
-        "JOIN categories ON products.category_id = categories.category_id"
+        "INNER JOIN orders ON customers.customer_id = orders.customer_id\n"
+        "INNER JOIN products ON orders.order_id = products.order_id\n"
+        "INNER JOIN transactions ON customers.customer_id = transactions.customer_id\n"
+        "WHERE customers.customer_id = 1"
     )

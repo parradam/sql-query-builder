@@ -1,41 +1,93 @@
-class Relationship:
-    def __init__(
-        self, from_table: str, from_field: str, to_table: str, to_field: str
-    ) -> None:
-        self.from_table: str = from_table
-        self.from_field: str = from_field
-        self.to_table: str = to_table
-        self.to_field: str = to_field
+from typing import Any
+from typing_extensions import Self
+from dataclasses import dataclass
 
 
-def build_query(relationships: list[Relationship]) -> str:
-    joins = []
-    last_table = None
-    this_join = ""
+@dataclass
+class JoinCondition:
+    firstField: str
+    secondField: str
+    operator: str
 
-    # Follow relationships
-    for relationship in relationships:
-        if relationship.from_table is not last_table:
-            # If it's the first time with a relationship, creat a JOIN statement
-            this_join: str = f"JOIN {relationship.to_table} ON {relationship.from_table}.{relationship.from_field} = {relationship.to_table}.{relationship.to_field}"
-        else:
-            # Add to existing JOIN with AND:
-            this_join += f" AND {relationship.from_table}.{relationship.from_field} = {relationship.to_table}.{relationship.to_field}"
 
-        # Error if relationship not found
+@dataclass
+class Join:
+    type: str
+    table: str
+    conditions: list[JoinCondition]
 
-        # Append to joins list
-        joins.append(this_join)
-        last_table: str = relationship.from_table
 
-    # Convert joins list to string
-    joins_string = "\n".join(joins)
+@dataclass
+class WhereCondition:
+    field: str
+    value: str
+    operator: str
 
-    # Create initial SELECT ... FROM ...
-    select_from: str = f"SELECT\n\t-- [fields]\nFROM {relationships[0].from_table}\n"
 
-    # Combine statements
-    query: str = select_from + joins_string
+class QueryBuilder:
+    def __init__(self) -> None:
+        self.query: dict[str, Any] = {
+            "select": [],
+            "from": "",
+            "joins": [],
+            "where": [],
+        }
 
-    # Return result
-    return query
+    def select(self, *fields: str) -> Self:
+        self.query["select"].extend(fields)
+        return self
+
+    def from_table(self, table: str) -> Self:
+        self.query["from"] = table
+        return self
+
+    def join(self, join: Join) -> Self:
+        initial: str = f"{join.type} JOIN {join.table} ON"
+        join_conditions: str = " AND ".join(
+            map(QueryBuilder._build_join_conditions, join.conditions)
+        )
+        join_clause = initial + " " + join_conditions
+        self.query["joins"].append(join_clause)
+        return self
+
+    def where(self, conditions: list[WhereCondition]) -> Self:
+        where_conditions: str = " AND ".join(
+            map(QueryBuilder._build_where_conditions, conditions)
+        )
+        self.query["where"].append(where_conditions)
+        return self
+
+    def build(self) -> str:
+        select: str = "SELECT " + ", ".join(self.query["select"])
+        from_table: str = "\nFROM " + self.query["from"]
+        joins: str = "\n" + "\n".join(self.query["joins"])
+        where: str = "\nWHERE " + " AND ".join(self.query["where"])
+
+        return select + from_table + joins + where
+
+    @staticmethod
+    def _build_join_conditions(join_condition: JoinCondition) -> str:
+        return f"{join_condition.firstField} {join_condition.operator} {join_condition.secondField}"
+
+    @staticmethod
+    def _build_where_conditions(where_condition: WhereCondition) -> str:
+        return f"{where_condition.field} {where_condition.operator} {where_condition.value}"
+
+
+def validate_structure() -> None:
+    pass
+
+
+def format_input() -> None:
+    pass
+
+
+def handler() -> None:
+    # Create dataclasses uses format_input
+
+    # Validate the structure using validate_structure
+
+    # Build the query
+
+    # Return the result
+    pass
