@@ -1,14 +1,15 @@
 from typing import Any
 from typing_extensions import Self
-from dataclasses import dataclass
-
+from dataclasses import dataclass, field
+import dataclasses_json
 
 @dataclass
 class JoinCondition:
+    firstTable: str
     firstField: str
+    secondTable: str
     secondField: str
     operator: str
-
 
 @dataclass
 class Join:
@@ -16,13 +17,29 @@ class Join:
     table: str
     conditions: list[JoinCondition]
 
-
 @dataclass
 class WhereCondition:
+    table: str
     field: str
     value: str
-    operator: str
 
+@dataclass
+class Relationship:
+    from_field: str
+    to_table: str
+    to_field: str
+    objective: str
+
+@dataclass
+class Table:
+    name: str
+    fields: list[str] = field(default_factory=list)
+    relationships: list[Relationship] = field(default_factory=list)
+    whereConditions: list[WhereCondition] = field(default_factory=list)
+
+@dataclass
+class Schema(dataclasses_json.DataClassJsonMixin):
+    tables: list[Table]
 
 class QueryBuilder:
     def __init__(self) -> None:
@@ -36,7 +53,7 @@ class QueryBuilder:
     def select(self, *fields: str) -> Self:
         self.query["select"].extend(fields)
         return self
-
+    
     def from_table(self, table: str) -> Self:
         self.query["from"] = table
         return self
@@ -67,27 +84,37 @@ class QueryBuilder:
 
     @staticmethod
     def _build_join_conditions(join_condition: JoinCondition) -> str:
-        return f"{join_condition.firstField} {join_condition.operator} {join_condition.secondField}"
+        return f"{join_condition.firstTable}.{join_condition.firstField} = {join_condition.secondTable}.{join_condition.secondField}"
 
     @staticmethod
     def _build_where_conditions(where_condition: WhereCondition) -> str:
-        return f"{where_condition.field} {where_condition.operator} {where_condition.value}"
+        return f"{where_condition.table}.{where_condition.field} = {where_condition.value}"
 
+# Convert to dataclass
+def convert_to_dataclass(input: dict[str, Any]) -> Schema:
+    schema = Schema.from_dict(input)
+    return schema
 
-def validate_structure() -> None:
-    pass
+# Validate (coming soon)
 
+# Decide how to build query and call QueryBuilder
+def create_query(dc: Schema) -> str:
+    qb = QueryBuilder()
 
-def format_input() -> None:
-    pass
+    qb.from_table(dc.tables[0].name)
 
+    for table in dc.tables:
+        if table.fields:
+            qb.select(*table.fields)
+        
+        if table.whereConditions:
+            qb.where(table.whereConditions)
 
-def handler() -> None:
-    # Create dataclasses uses format_input
+        if table.relationships:
+            join_conditions: list[JoinCondition] = []
+        
+            for relationship in table.relationships:
+                join_conditions.append(JoinCondition(table.name, relationship.from_field, relationship.to_table, relationship.to_field, "="))
+            qb.join(Join("INNER", table.relationships[0].to_table, join_conditions))
 
-    # Validate the structure using validate_structure
-
-    # Build the query
-
-    # Return the result
-    pass
+    return qb.build()
