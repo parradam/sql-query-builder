@@ -92,7 +92,7 @@ class QueryBuilder:
 
 # Convert to dataclass
 def convert_to_dataclass(input: dict[str, Any]) -> Schema:
-    schema = Schema.from_dict(input)
+    schema: Schema = Schema.from_dict(input)
     return schema
 
 # Validate (coming soon)
